@@ -1,0 +1,14 @@
+#!/bin/bash
+# Run a .zpp file using the compiler
+DIR="$(dirname "$0")"
+BUILD_DIR="$DIR/build"
+EXEC="$BUILD_DIR/compiler"
+if [ ! -f "$EXEC" ]; then
+  echo "Compiler not built. Run 'make' in the build directory first."
+  exit 1
+fi
+if [ $# -eq 0 ]; then
+  echo "Usage: zpp <file.zpp>"
+  exit 1
+fi
+$EXEC "$1"

@@ -1,0 +1,95 @@
+// Simple Platformer - Testing Movement
+
+void main() {
+    screen(1024, 768, "ZPP Platformer - Test");
+    
+    print("Testing platformer");
+    print("A/D to move, W to jump");
+    
+    // Player
+    let playerX: int = 100;
+    let playerY: int = 600;
+    let playerVY: int = 0;
+    let onGround: int = 1;
+    let frameCount: int = 0;
+    
+    let running: int = 1;
+    
+    while(running == 1) {
+        updateInput();
+        frameCount = frameCount + 1;
+        
+        // Check for ESC key to quit
+        let escKey: int = isKeyDown("escape");
+        if (escKey == 1) {
+            running = 0;
+        }
+        
+       
+        // Sky
+        clearScreen(135, 206, 235);
+        
+        // Ground
+        drawRect(0, 700, 1024, 68, 100, 100, 100, 1);
+        
+        // Apply gravity
+        if (onGround == 0) {
+            playerVY = playerVY + 1;
+        }
+        
+        // Update Y
+        playerY = playerY + playerVY;
+        
+        // Ground collision
+        onGround = 0;
+        if (playerY >= 700) {
+            playerY = 700;
+            playerVY = 0;
+            onGround = 1;
+        }
+        
+        // Movement
+        let leftKey: int = isKeyDown("a");
+        let rightKey: int = isKeyDown("d");
+        
+        if (leftKey == 1) {
+            playerX = playerX - 5;
+        }
+        if (rightKey == 1) {
+            playerX = playerX + 5;
+        }
+        
+        // Boundary
+        if (playerX < 0) {
+            playerX = 0;
+        }
+        if (playerX > 1000) {
+            playerX = 1000;
+        }
+        
+        // Jump
+        let jumpKey: int = isKeyDown("w");
+        if (jumpKey == 1 && onGround == 1) {
+            playerVY = -15;
+        }
+        
+        // Draw player
+        drawRect(playerX, playerY, 40, 40, 0, 100, 255, 1);
+        
+        // Display info
+        drawRect(10, 10, 300, 100, 0, 0, 0, 1);
+        drawRect(10, 10, 300, 100, 50, 50, 50, 0);
+        
+        // Show position
+        print("X: ");
+        print(playerX);
+        print(" Y: ");
+        print(playerY);
+        print(" Ground: ");
+        print(onGround);
+        
+        display();
+    }
+    
+    quit();
+}
