@@ -15,7 +15,8 @@ enum class TokenType {
     IDENTIFIER,
     TRUE_LIT,
     FALSE_LIT,
-    
+    ARRAY,    
+
     // Keywords
     IF,
     ELIF,
