@@ -18,36 +18,39 @@ echo "Detected OS: $OS"
 install_deps() {
     case "$OS" in
         arch|manjaro|cachy)
-            sudo pacman -Syu --needed cmake make gcc
+            sudo pacman -Syu --needed cmake make gcc base-devel sdl2
             ;;
         ubuntu|debian)
             sudo apt update
-            sudo apt install -y cmake build-essential
+            sudo apt install -y cmake build-essential libsdl2-dev
             ;;
         fedora)
-            sudo dnf install -y cmake make gcc
+            sudo dnf install -y cmake make gcc SDL2-devel
             ;;
         windows)
-            echo "Make sure you have CMake and Make installed in Git Bash/MSYS2 or WSL."
+            echo "Make sure you have CMake, Make, and SDL2 installed in Git Bash/MSYS2 or WSL."
             ;;
         *)
-            echo "Unsupported OS. Please install cmake and make manually."
+            echo "Unsupported OS. Please install cmake, make, gcc, and SDL2 manually."
             ;;
     esac
 }
 
-read -p "Do you want to install required dependencies (cmake, make, gcc)? [Y/n]: " answer
+read -p "Do you want to install required dependencies (cmake, make, gcc, SDL2)? [Y/n]: " answer
 answer=${answer:-Y}
 if [[ $answer =~ ^[Yy]$ ]]; then
     install_deps
 fi
 
-BUILD_DIR="$(pwd)/compiler/build"
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BUILD_DIR="$SCRIPT_DIR/compiler/build"
+
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 cmake ..
 make
-cd ../../..
+cd "$SCRIPT_DIR"
 
 if [[ "$OS" == "windows" ]]; then
     BIN_DIR="$HOME/bin"
@@ -58,18 +61,19 @@ fi
 mkdir -p "$BIN_DIR"
 ZPP_WRAPPER="$BIN_DIR/zpp"
 
-cat > "$ZPP_WRAPPER" << 'EOF'
+# Use the actual project directory instead of hardcoding Desktop
+cat > "$ZPP_WRAPPER" << EOF
 #!/bin/bash
-COMPILER="$HOME/Desktop/zpp_compiler/compiler/build/compiler"
-if [ ! -x "$COMPILER" ]; then
+COMPILER="$BUILD_DIR/compiler"
+if [ ! -x "\$COMPILER" ]; then
     echo "Compiler not found. Build failed?"
     exit 1
 fi
-if [ $# -eq 0 ]; then
+if [ \$# -eq 0 ]; then
     echo "Usage: zpp <file.zpp>"
     exit 1
 fi
-exec "$COMPILER" "$@"
+exec "\$COMPILER" "\$@"
 EOF
 
 chmod +x "$ZPP_WRAPPER"
