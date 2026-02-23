@@ -7,8 +7,11 @@ if [ -f /etc/os-release ]; then
     OS=$ID
 elif [ "$OS" = "" ]; then
     case "$(uname -s)" in
-        MINGW*|MSYS*|CYGWIN*|Linux)
+        MINGW*|MSYS*|CYGWIN*)
             OS="windows"
+            ;;
+        Linux)
+            OS="linux"
             ;;
     esac
 fi
@@ -18,26 +21,30 @@ echo "Detected OS: $OS"
 install_deps() {
     case "$OS" in
         arch|manjaro|cachy)
-            sudo pacman -Syu --needed cmake make gcc base-devel sdl2
+            sudo pacman -Syu --needed cmake make gcc base-devel sdl2 sdl2_image
             ;;
         ubuntu|debian)
             sudo apt update
-            sudo apt install -y cmake build-essential libsdl2-dev
+            sudo apt install -y cmake build-essential libsdl2-dev libsdl2-image-dev
             ;;
         fedora)
-            sudo dnf install -y cmake make gcc SDL2-devel
+            sudo dnf install -y cmake make gcc SDL2-devel SDL2_image-devel
             ;;
         windows)
             echo "Make sure you have CMake, Make, and SDL2 installed in Git Bash/MSYS2 or WSL."
             ;;
         *)
-            echo "Unsupported OS. Please install cmake, make, gcc, and SDL2 manually."
+            echo "Unsupported OS. Please install cmake, make, gcc, SDL2, and SDL2_image manually."
             ;;
     esac
 }
 
-read -p "Do you want to install required dependencies (cmake, make, gcc, SDL2)? [Y/n]: " answer
-answer=${answer:-Y}
+if [ -t 0 ]; then
+    read -p "Do you want to install required dependencies (cmake, make, gcc, SDL2, SDL2_image)? [Y/n]: " answer
+    answer=${answer:-Y}
+else
+    answer="Y"
+fi
 if [[ $answer =~ ^[Yy]$ ]]; then
     install_deps
 fi

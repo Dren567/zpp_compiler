@@ -41,11 +41,27 @@ char readSingleKey() {
 // Global graphics instance - shared across the interpreter
 Graphics* g_graphics = nullptr;
 
-// Value type: Variant that can hold int, double, string, or bool
+// Value type: Variant that can hold int, double, string, bool, or arrays
 // Used for storing runtime values during IR interpretation
 #include <map>
 #include <variant>
-using Value = std::variant<int, double, std::string, bool>;
+#include <vector>
+#include <memory>
+
+struct ArrayValue;
+using Value = std::variant<int, double, std::string, bool, std::shared_ptr<ArrayValue>>;
+
+struct ArrayValue {
+    std::vector<Value> elements;
+};
+
+int valueToInt(const Value& v) {
+    if (std::holds_alternative<int>(v)) return std::get<int>(v);
+    if (std::holds_alternative<double>(v)) return static_cast<int>(std::get<double>(v));
+    if (std::holds_alternative<std::string>(v)) return std::stoi(std::get<std::string>(v));
+    if (std::holds_alternative<bool>(v)) return std::get<bool>(v) ? 1 : 0;
+    throw std::runtime_error("Cannot convert value to int");
+}
 
 // interpretIR: Execute the IR bytecode
 // Walks through the IR instructions and executes them
@@ -80,6 +96,12 @@ void interpretIR(const IRProgram& ir) {
                     temps[instr.result.toString()] = v;
                 } else if (instr.opcode == IROpCode::LOAD_STRING) {
                     temps[instr.result.toString()] = instr.operands[0].name;
+                } else if (instr.opcode == IROpCode::LOAD_ARRAY) {
+                    auto arrayValue = std::make_shared<ArrayValue>();
+                    for (const auto& operand : instr.operands) {
+                        arrayValue->elements.push_back(temps[operand.toString()]);
+                    }
+                    temps[instr.result.toString()] = arrayValue;
                 } else if (instr.opcode == IROpCode::ADD) {
                     auto a = temps[instr.operands[0].toString()];
                     auto b = temps[instr.operands[1].toString()];
@@ -170,12 +192,23 @@ void interpretIR(const IRProgram& ir) {
                         }
                     }, b);
                     temps[instr.result.toString()] = result;
+                } else if (instr.opcode == IROpCode::LEN) {
+                    const Value& arrVal = temps[instr.operands[0].toString()];
+                    if (!std::holds_alternative<std::shared_ptr<ArrayValue>>(arrVal)) {
+                        throw std::runtime_error("len can only be used on arrays");
+                    }
+                    auto arr = std::get<std::shared_ptr<ArrayValue>>(arrVal);
+                    temps[instr.result.toString()] = static_cast<int>(arr ? arr->elements.size() : 0);
                 } else if (instr.opcode == IROpCode::PRINT) {
                     auto v = temps[instr.operands[0].toString()];
                     if (std::holds_alternative<int>(v)) std::cout << std::get<int>(v);
                     else if (std::holds_alternative<double>(v)) std::cout << std::get<double>(v);
                     else if (std::holds_alternative<bool>(v)) std::cout << (std::get<bool>(v) ? "true" : "false");
                     else if (std::holds_alternative<std::string>(v)) std::cout << std::get<std::string>(v);
+                    else if (std::holds_alternative<std::shared_ptr<ArrayValue>>(v)) {
+                        auto arr = std::get<std::shared_ptr<ArrayValue>>(v);
+                        std::cout << "[array size=" << (arr ? arr->elements.size() : 0) << "]";
+                    }
                     std::cout.flush();
                 } else if (instr.opcode == IROpCode::LT) {
                     auto a = temps[instr.operands[0].toString()];
@@ -302,6 +335,30 @@ void interpretIR(const IRProgram& ir) {
                     continue;
                 } else if (instr.opcode == IROpCode::STORE) {
                     temps[instr.result.toString()] = temps[instr.operands[0].toString()];
+                } else if (instr.opcode == IROpCode::LOAD_INDEX) {
+                    const Value& arrVal = temps[instr.operands[0].toString()];
+                    int idx = valueToInt(temps[instr.operands[1].toString()]);
+                    if (!std::holds_alternative<std::shared_ptr<ArrayValue>>(arrVal)) {
+                        throw std::runtime_error("Attempted index access on non-array value");
+                    }
+                    auto arr = std::get<std::shared_ptr<ArrayValue>>(arrVal);
+                    if (!arr || idx < 0 || static_cast<size_t>(idx) >= arr->elements.size()) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    temps[instr.result.toString()] = arr->elements[idx];
+                } else if (instr.opcode == IROpCode::STORE_INDEX) {
+                    Value& arrVal = temps[instr.operands[0].toString()];
+                    int idx = valueToInt(temps[instr.operands[1].toString()]);
+                    Value newValue = temps[instr.operands[2].toString()];
+                    if (!std::holds_alternative<std::shared_ptr<ArrayValue>>(arrVal)) {
+                        throw std::runtime_error("Attempted index assignment on non-array value");
+                    }
+                    auto arr = std::get<std::shared_ptr<ArrayValue>>(arrVal);
+                    if (!arr || idx < 0 || static_cast<size_t>(idx) >= arr->elements.size()) {
+                        throw std::runtime_error("Array index out of bounds");
+                    }
+                    arr->elements[idx] = newValue;
+                    temps[instr.result.toString()] = arr;
                 } else if (instr.opcode == IROpCode::INPUT) {
                     // Print the prompt if provided
                     if (!instr.prompt.empty()) {

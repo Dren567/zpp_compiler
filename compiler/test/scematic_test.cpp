@@ -292,6 +292,28 @@ void testStringType() {
     std::cout << "✓ String type test passed" << std::endl;
 }
 
+void testArrayLenSemantic() {
+    std::cout << "Testing array len semantic analysis..." << std::endl;
+
+    std::string source = R"(
+        int main() {
+            let arr:int = [1, 2, 3];
+            int n = arr.len;
+            return n;
+        }
+    )";
+
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parse();
+
+    SemanticAnalyzer analyzer(ast);
+    analyzer.analyze();
+
+    std::cout << "✓ Array len semantic test passed" << std::endl;
+}
+
 int main() {
     std::cout << "=== Semantic Analysis Tests ===" << std::endl;
     
@@ -305,6 +327,7 @@ int main() {
         testIfStatementCondition();
         testWhileLoopCondition();
         testForLoop();
+        testArrayLenSemantic();
         testMultipleFunctions();
         testParameterAccess();
         testStringType();

@@ -301,6 +301,9 @@ ExpressionPtr Parser::parseAssignment() {
         if (auto id = std::dynamic_pointer_cast<Identifier>(left)) {
             auto value = parseAssignment();
             return std::make_shared<Assignment>(id->name, value);
+        } else if (auto access = std::dynamic_pointer_cast<ArrayAccess>(left)) {
+            auto value = parseAssignment();
+            return std::make_shared<ArrayElementAssignment>(access->array, access->index, value);
         } else {
             throw std::runtime_error("Invalid assignment target");
         }
@@ -386,7 +389,7 @@ ExpressionPtr Parser::parseUnary() {
 
 ExpressionPtr Parser::parsePostfix() {
     auto expr = parsePrimary();
-    while (check(TokenType::LPAREN) || check(TokenType::LBRACKET)) {
+    while (check(TokenType::LPAREN) || check(TokenType::LBRACKET) || check(TokenType::DOT)) {
         if (check(TokenType::LPAREN)) {
             advance();
             std::vector<ExpressionPtr> args;
@@ -406,6 +409,18 @@ ExpressionPtr Parser::parsePostfix() {
             auto index = parseExpression();
             consume(TokenType::RBRACKET, "Expected ']' after index");
             expr = std::make_shared<ArrayAccess>(expr, index);
+        } else if (check(TokenType::DOT)) {
+            advance();
+            if (!check(TokenType::IDENTIFIER)) {
+                throw std::runtime_error("Expected property name after '.'");
+            }
+            std::string property = currentToken().value;
+            advance();
+            if (property == "len") {
+                expr = std::make_shared<FunctionCall>("len", std::vector<ExpressionPtr>{expr});
+            } else {
+                throw std::runtime_error("Unknown property: " + property);
+            }
         }
     }
     return expr;
@@ -424,6 +439,17 @@ ExpressionPtr Parser::parsePrimary() {
         auto tok = currentToken();
         advance();
         return std::make_shared<Literal>(tok.type, tok.value);
+    }
+    if (check(TokenType::LBRACKET)) {
+        advance();
+        std::vector<ExpressionPtr> elements;
+        if (!check(TokenType::RBRACKET)) {
+            do {
+                elements.push_back(parseAssignment());
+            } while (match({TokenType::COMMA}));
+        }
+        consume(TokenType::RBRACKET, "Expected ']' after array literal");
+        return std::make_shared<ArrayLiteral>(elements);
     }
     if (check(TokenType::IDENTIFIER)) {
         std::string name = currentToken().value;

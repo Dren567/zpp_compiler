@@ -77,6 +77,8 @@ private:
     std::string analyzeFunctionCall(const std::shared_ptr<FunctionCall>& call);
     std::string analyzeAssignment(const std::shared_ptr<Assignment>& assign);
     std::string analyzeArrayAccess(const std::shared_ptr<ArrayAccess>& access);
+    std::string analyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& literal);
+    std::string analyzeArrayElementAssignment(const std::shared_ptr<ArrayElementAssignment>& assign);
     
     // Helper methods for type checking and scope management
     bool isCompatibleType(const std::string& from, const std::string& to);  // Can we convert from -> to?

@@ -24,6 +24,8 @@ struct UnaryOp;
 struct FunctionCall;
 struct Literal;
 struct Identifier;
+struct ArrayLiteral;
+struct ArrayElementAssignment;
 
 using ASTNodePtr = std::shared_ptr<ASTNode>;
 using ProgramPtr = std::shared_ptr<Program>;
@@ -97,6 +99,22 @@ struct ArrayAccess : public Expression {
     
     ArrayAccess(ExpressionPtr arr, ExpressionPtr idx)
         : array(arr), index(idx) {}
+};
+
+struct ArrayLiteral : public Expression {
+    std::vector<ExpressionPtr> elements;
+
+    ArrayLiteral() = default;
+    explicit ArrayLiteral(const std::vector<ExpressionPtr>& elems) : elements(elems) {}
+};
+
+struct ArrayElementAssignment : public Expression {
+    ExpressionPtr array;
+    ExpressionPtr index;
+    ExpressionPtr value;
+
+    ArrayElementAssignment(ExpressionPtr arr, ExpressionPtr idx, ExpressionPtr v)
+        : array(arr), index(idx), value(v) {}
 };
 
 struct Assignment : public Expression {
