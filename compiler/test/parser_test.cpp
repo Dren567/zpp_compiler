@@ -294,6 +294,61 @@ void testArrayAccess() {
     std::cout << "✓ Array access test passed" << std::endl;
 }
 
+void testArrayLiteral() {
+    std::cout << "Testing array literal..." << std::endl;
+
+    Lexer lexer("int main() { let nums:int = [1, 2, 3]; }");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    auto func = program->functions[0];
+    auto block = std::dynamic_pointer_cast<BlockStatement>(func->body);
+    auto varDecl = std::dynamic_pointer_cast<VariableDecl>(block->statements[0]);
+    auto arr = std::dynamic_pointer_cast<ArrayLiteral>(varDecl->initializer);
+    assert(arr != nullptr);
+    assert(arr->elements.size() == 3);
+
+    std::cout << "✓ Array literal test passed" << std::endl;
+}
+
+void testArrayElementAssignment() {
+    std::cout << "Testing array element assignment..." << std::endl;
+
+    Lexer lexer("int main() { arr[1] = 42; }");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    auto func = program->functions[0];
+    auto block = std::dynamic_pointer_cast<BlockStatement>(func->body);
+    auto exprStmt = std::dynamic_pointer_cast<ExpressionStatement>(block->statements[0]);
+    auto assign = std::dynamic_pointer_cast<ArrayElementAssignment>(exprStmt->expression);
+    assert(assign != nullptr);
+
+    std::cout << "✓ Array element assignment test passed" << std::endl;
+}
+
+void testArrayLenProperty() {
+    std::cout << "Testing array len property..." << std::endl;
+
+    Lexer lexer("int main() { return arr.len; }");
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto program = parser.parse();
+
+    auto func = program->functions[0];
+    auto block = std::dynamic_pointer_cast<BlockStatement>(func->body);
+    auto returnStmt = std::dynamic_pointer_cast<ReturnStatement>(block->statements[0]);
+    auto lenCall = std::dynamic_pointer_cast<FunctionCall>(returnStmt->expression);
+
+    assert(lenCall != nullptr);
+    assert(lenCall->name == "len");
+    assert(lenCall->arguments.size() == 1);
+
+    std::cout << "✓ Array len property test passed" << std::endl;
+}
+
 int main() {
     std::cout << "=== PARSER TESTS ===" << std::endl << std::endl;
     
@@ -313,6 +368,9 @@ int main() {
         testAssignment();
         testOperatorPrecedence();
         testArrayAccess();
+        testArrayLiteral();
+        testArrayElementAssignment();
+        testArrayLenProperty();
         
         std::cout << "\n=== ALL TESTS PASSED ===" << std::endl;
         return 0;

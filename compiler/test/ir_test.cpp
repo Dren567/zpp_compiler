@@ -358,6 +358,36 @@ void testMultipleFunctions() {
     std::cout << "✓ Multiple functions test passed" << std::endl;
 }
 
+void testArrayLenIR() {
+    std::cout << "Testing array len in IR..." << std::endl;
+
+    std::string source = R"(
+        int main() {
+            let arr:int = [1, 2, 3];
+            return arr.len;
+        }
+    )";
+
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+    Parser parser(tokens);
+    auto ast = parser.parse();
+
+    IRGenerator irGen(ast);
+    auto ir = irGen.generate();
+
+    bool hasLen = false;
+    for (const auto& instr : ir.functions[0].instructions) {
+        if (instr.opcode == IROpCode::LEN) {
+            hasLen = true;
+            break;
+        }
+    }
+
+    assert(hasLen);
+    std::cout << "✓ Array len IR test passed" << std::endl;
+}
+
 int main() {
     std::cout << "=== IR GENERATOR TESTS ===" << std::endl << std::endl;
     
@@ -369,6 +399,7 @@ int main() {
         testWhileLoop();
         testForLoop();
         testFunctionCall();
+        testArrayLenIR();
         testUnaryOperations();
         testIRInstructionToString();
         testComplexExpression();

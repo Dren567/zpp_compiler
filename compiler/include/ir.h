@@ -44,11 +44,17 @@ enum class IROpCode {
     STORE,
     LOAD_GLOBAL,
     STORE_GLOBAL,
+    LOAD_INDEX,
+    STORE_INDEX,
 
     // Literals
     LOAD_INT,
     LOAD_FLOAT,
     LOAD_STRING,
+    LOAD_ARRAY,
+
+    // Array helpers
+    LEN,
 
     // Other
     PRINT,
@@ -143,6 +149,8 @@ private:
     IRValue visitFunctionCall(const std::shared_ptr<FunctionCall>& call);
     IRValue visitAssignment(const std::shared_ptr<Assignment>& assign);
     IRValue visitArrayAccess(const std::shared_ptr<ArrayAccess>& access);
+    IRValue visitArrayLiteral(const std::shared_ptr<ArrayLiteral>& literal);
+    IRValue visitArrayElementAssignment(const std::shared_ptr<ArrayElementAssignment>& assign);
     
     // Helper methods
     IRValue createTemp();

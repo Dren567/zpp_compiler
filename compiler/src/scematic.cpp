@@ -183,18 +183,27 @@ void SemanticAnalyzer::analyzeForStatement(const std::shared_ptr<ForStatement>& 
 
 void SemanticAnalyzer::analyzeVariableDecl(const std::shared_ptr<VariableDecl>& varDecl) {
     if (!varDecl) return;
-    
+
+    std::string declaredType = varDecl->type;
+
     if (varDecl->initializer) {
         std::string exprType = analyzeExpression(varDecl->initializer);
-        
-        if (!isCompatibleType(exprType, varDecl->type)) {
-            reportError("Variable initialization type mismatch: expected " + varDecl->type + 
+
+        if (exprType.rfind("array<", 0) == 0 && exprType.back() == '>') {
+            std::string elementType = exprType.substr(6, exprType.size() - 7);
+            if (declaredType == elementType) {
+                declaredType = exprType;
+            }
+        }
+
+        if (!isCompatibleType(exprType, declaredType)) {
+            reportError("Variable initialization type mismatch: expected " + declaredType +
                        ", got " + exprType);
         }
     }
-    
+
     // Declare variable in current scope
-    Symbol varSymbol(varDecl->name, varDecl->type, false, true);
+    Symbol varSymbol(varDecl->name, declaredType, false, true);
     try {
         currentScope->declare(varDecl->name, varSymbol);
     } catch (const std::exception& e) {
@@ -225,6 +234,10 @@ std::string SemanticAnalyzer::analyzeExpression(const ExpressionPtr& expr) {
         return analyzeAssignment(assign);
     } else if (auto access = std::dynamic_pointer_cast<ArrayAccess>(expr)) {
         return analyzeArrayAccess(access);
+    } else if (auto literal = std::dynamic_pointer_cast<ArrayLiteral>(expr)) {
+        return analyzeArrayLiteral(literal);
+    } else if (auto arrAssign = std::dynamic_pointer_cast<ArrayElementAssignment>(expr)) {
+        return analyzeArrayElementAssignment(arrAssign);
     }
     
     return "void";
@@ -308,6 +321,20 @@ std::string SemanticAnalyzer::analyzeIdentifier(const std::shared_ptr<Identifier
 
 std::string SemanticAnalyzer::analyzeFunctionCall(const std::shared_ptr<FunctionCall>& call) {
     if (!call) return "void";
+
+    if (call->name == "len") {
+        if (call->arguments.size() != 1) {
+            reportError("len expects exactly one argument");
+            return "int";
+        }
+
+        std::string argType = analyzeExpression(call->arguments[0]);
+        if (argType.rfind("array<", 0) != 0) {
+            reportError("len can only be used on arrays, got " + argType);
+        }
+
+        return "int";
+    }
     
     Symbol* symbol = currentScope->lookup(call->name);
     if (!symbol) {
@@ -353,8 +380,14 @@ std::string SemanticAnalyzer::analyzeArrayAccess(const std::shared_ptr<ArrayAcce
     std::string arrayType = analyzeExpression(access->array);
     std::string indexType = analyzeExpression(access->index);
     
-    // For now, assume array access returns the element type
-    // This would need proper array type handling in the future
+    if (indexType != "int") {
+        reportError("Array index must be int, got " + indexType);
+    }
+
+    if (arrayType.rfind("array<", 0) == 0 && !arrayType.empty() && arrayType.back() == '>') {
+        return arrayType.substr(6, arrayType.size() - 7);
+    }
+
     return arrayType;
 }
 
@@ -370,6 +403,10 @@ bool SemanticAnalyzer::isCompatibleType(const std::string& from, const std::stri
     }
     if ((from == "bool" || from == "int") && (to == "bool" || to == "int")) {
         return true;
+    }
+
+    if (from.rfind("array<", 0) == 0 && to.rfind("array<", 0) == 0) {
+        return from == to;
     }
     
     return false;
@@ -407,4 +444,47 @@ void SemanticAnalyzer::reportError(const std::string& message) {
 
 bool SemanticAnalyzer::hasErrors() {
     return errors;
+}
+
+std::string SemanticAnalyzer::analyzeArrayLiteral(const std::shared_ptr<ArrayLiteral>& literal) {
+    if (!literal || literal->elements.empty()) {
+        return "array<any>";
+    }
+
+    std::string elementType = analyzeExpression(literal->elements[0]);
+    for (size_t i = 1; i < literal->elements.size(); ++i) {
+        std::string nextType = analyzeExpression(literal->elements[i]);
+        std::string common = getCommonType(elementType, nextType);
+        if (common == "void") {
+            reportError("Incompatible types in array literal: " + elementType + " and " + nextType);
+            return "array<any>";
+        }
+        elementType = common;
+    }
+
+    return "array<" + elementType + ">";
+}
+
+std::string SemanticAnalyzer::analyzeArrayElementAssignment(const std::shared_ptr<ArrayElementAssignment>& assign) {
+    if (!assign) return "void";
+
+    std::string arrayType = analyzeExpression(assign->array);
+    std::string indexType = analyzeExpression(assign->index);
+    std::string valueType = analyzeExpression(assign->value);
+
+    if (indexType != "int") {
+        reportError("Array index must be int, got " + indexType);
+    }
+
+    if (arrayType.rfind("array<", 0) != 0 || arrayType.back() != '>') {
+        reportError("Target is not an array type: " + arrayType);
+        return "void";
+    }
+
+    std::string elementType = arrayType.substr(6, arrayType.size() - 7);
+    if (elementType != "any" && !isCompatibleType(valueType, elementType)) {
+        reportError("Array element assignment type mismatch: expected " + elementType + ", got " + valueType);
+    }
+
+    return elementType;
 }

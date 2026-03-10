@@ -68,9 +68,13 @@ std::string opCodeToString(IROpCode opcode) {
         case IROpCode::STORE: return "STORE";
         case IROpCode::LOAD_GLOBAL: return "LOAD_GLOBAL";
         case IROpCode::STORE_GLOBAL: return "STORE_GLOBAL";
+        case IROpCode::LOAD_INDEX: return "LOAD_INDEX";
+        case IROpCode::STORE_INDEX: return "STORE_INDEX";
         case IROpCode::LOAD_INT: return "LOAD_INT";
         case IROpCode::LOAD_FLOAT: return "LOAD_FLOAT";
         case IROpCode::LOAD_STRING: return "LOAD_STRING";
+        case IROpCode::LOAD_ARRAY: return "LOAD_ARRAY";
+        case IROpCode::LEN: return "LEN";
         case IROpCode::PRINT: return "PRINT";
         case IROpCode::INPUT: return "INPUT";
         case IROpCode::KEY_PRESSED: return "KEY_PRESSED";
@@ -316,6 +320,10 @@ IRValue IRGenerator::visitExpression(const ExpressionPtr& expr) {
         return visitAssignment(assign);
     } else if (auto access = std::dynamic_pointer_cast<ArrayAccess>(expr)) {
         return visitArrayAccess(access);
+    } else if (auto literal = std::dynamic_pointer_cast<ArrayLiteral>(expr)) {
+        return visitArrayLiteral(literal);
+    } else if (auto arrAssign = std::dynamic_pointer_cast<ArrayElementAssignment>(expr)) {
+        return visitArrayElementAssignment(arrAssign);
     } else if (auto inputCall = std::dynamic_pointer_cast<InputCall>(expr)) {
         IRValue result = createTemp();
         IRInstruction instr(IROpCode::INPUT);
@@ -417,6 +425,18 @@ IRValue IRGenerator::visitFunctionCall(const std::shared_ptr<FunctionCall>& call
     IRValue result = createTemp();
     
     // Handle screen() function specially
+    if (call->name == "len") {
+        if (call->arguments.size() != 1) {
+            throw std::runtime_error("len expects exactly one argument");
+        }
+
+        IRInstruction instr(IROpCode::LEN);
+        instr.operands.push_back(visitExpression(call->arguments[0]));
+        instr.result = result;
+        emitInstruction(instr);
+        return result;
+    }
+    
     if (call->name == "screen") {
         IRInstruction instr(IROpCode::SCREEN);
         
@@ -567,13 +587,43 @@ IRValue IRGenerator::visitArrayAccess(const std::shared_ptr<ArrayAccess>& access
     IRValue index = visitExpression(access->index);
     IRValue result = createTemp();
     
-    IRInstruction instr(IROpCode::LOAD);
+    IRInstruction instr(IROpCode::LOAD_INDEX);
     instr.operands.push_back(array);
     instr.operands.push_back(index);
     instr.result = result;
     emitInstruction(instr);
     
     return result;
+}
+
+
+IRValue IRGenerator::visitArrayLiteral(const std::shared_ptr<ArrayLiteral>& literal) {
+    IRValue result = createTemp();
+
+    IRInstruction instr(IROpCode::LOAD_ARRAY);
+    if (literal) {
+        for (const auto& element : literal->elements) {
+            instr.operands.push_back(visitExpression(element));
+        }
+    }
+    instr.result = result;
+    emitInstruction(instr);
+    return result;
+}
+
+IRValue IRGenerator::visitArrayElementAssignment(const std::shared_ptr<ArrayElementAssignment>& assign) {
+    IRValue arrayVal = visitExpression(assign->array);
+    IRValue indexVal = visitExpression(assign->index);
+    IRValue valueVal = visitExpression(assign->value);
+
+    IRInstruction instr(IROpCode::STORE_INDEX);
+    instr.operands.push_back(arrayVal);
+    instr.operands.push_back(indexVal);
+    instr.operands.push_back(valueVal);
+    instr.result = arrayVal;
+    emitInstruction(instr);
+
+    return valueVal;
 }
 
 IRValue IRGenerator::createTemp() {
